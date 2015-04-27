@@ -678,7 +678,7 @@ class DAV extends Common {
 	public function getPermissions($path) {
 		$this->init();
 		$path = $this->cleanPath($path);
-		$response = $this->client->propfind($this->encodePath($path), array('{http://owncloud.org/ns}permissions'));
+		$response = $this->propfind($path);
 		if (isset($response['{http://owncloud.org/ns}permissions'])) {
 			return $this->parsePermissions($response['{http://owncloud.org/ns}permissions']);
 		} else if ($this->is_dir($path)) {
@@ -688,6 +688,17 @@ class DAV extends Common {
 		} else {
 			return 0;
 		}
+	}
+
+	/** {@inheritdoc} */
+	public function getETag($path) {
+		$this->init();
+		$path = $this->cleanPath($path);
+		$response = $this->propfind($path);
+		if (isset($response['{DAV:}getetag'])) {
+			return trim($response['{DAV:}getetag'], '"');
+		}
+		return parent::getEtag();
 	}
 
 	/**
@@ -729,8 +740,11 @@ class DAV extends Common {
 			$response = $this->propfind($path);
 			if (isset($response['{DAV:}getetag'])) {
 				$cachedData = $this->getCache()->get($path);
-				$etag = trim($response['{DAV:}getetag'], '"');
-				if ($cachedData['etag'] !== $etag) {
+				$etag = null;
+				if (isset($response['{DAV:}getetag'])) {
+					$etag = trim($response['{DAV:}getetag'], '"');
+				}
+				if (!empty($etag) && $cachedData['etag'] !== $etag) {
 					return true;
 				} else if (isset($response['{http://owncloud.org/ns}permissions'])) {
 					$permissions = $this->parsePermissions($response['{http://owncloud.org/ns}permissions']);
